@@ -27,7 +27,17 @@
             text-align: center;
             color: #2c3e50;
             font-size: 28px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
+        }
+        .permission-banner {
+            background: #f39c12;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            font-weight: bold;
         }
         .card {
             background: #eef2f3;
@@ -65,6 +75,18 @@
         button:hover {
             background-color: #219653;
         }
+        .voice-btn {
+            background-color: #8e44ad;
+        }
+        .voice-btn.recording {
+            background-color: #c0392b;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
         ul {
             list-style: none;
             padding: 0;
@@ -78,17 +100,23 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 18px;
         }
         .event-info {
             display: flex;
             flex-direction: column;
+            flex-grow: 1;
+            margin-left: 10px;
         }
         .event-time {
             font-size: 14px;
             color: #e67e22;
             font-weight: bold;
             margin-top: 5px;
+        }
+        audio {
+            width: 100%;
+            margin-top: 8px;
+            height: 35px;
         }
         .delete-btn {
             background: #e74c3c;
@@ -106,119 +134,211 @@
 <body>
 
     <div class="container">
-        <h1>مواعيد وتذكيرات حجي محمد</h1>
+        <h1>تذكيرات حجي محمد</h1>
 
-        <!-- قسم إضافة موعد منظم -->
-        <div class="card">
-            <h3>إضافة موعد أو حدث جديد</h3>
-            
-            <label for="eventText">اسم الموعد / الحدث:</label>
-            <input type="text" id="eventText" placeholder="مثلاً: موعد الدواء، زيارة الدكتور...">
-
-            <label for="eventDate">التاريخ:</label>
-            <input type="date" id="eventDate">
-
-            <label for="eventTime">الوقت:</label>
-            <input type="time" id="eventTime">
-
-            <button onclick="addStructuredEvent()">حفظ الموعد</button>
+        <!-- زر لتفعيل نظام التنبيهات والصوت لدى المتصفح -->
+        <div id="permissionBanner" class="permission-banner" onclick="enableAudioAndNotifications()">
+            اضغط هنا لتفعيل التنبيهات الصوتية والجرس 🔔
         </div>
 
-        <!-- قائمة التذكيرات -->
+        <!-- قسم الإدخال بالصوت (تحويل لنص أو تسجيل بصمة) -->
+        <div class="card">
+            <h3>إضافة تذكير صوتي سريع</h3>
+            <label>1. تحويل الحكي إلى كتابة مباشرة:</label>
+            <button id="speechTextBtn" class="voice-btn" onclick="startSpeechToText()">🎤 اضغط واحكي لتكتب الموعد</button>
+
+            <label style="margin-top: 15px;">2. أو تسجيل بصمة صوتية (صوتك):</label>
+            <button id="recordAudioBtn" class="voice-btn" style="background-color: #2980b9;" onclick="toggleAudioRecording()">🎙️ ابدأ تسجيل بصمة صوتية</button>
+            <div id="recordingStatus" style="font-size: 14px; color: #c0392b; margin-top: 5px; text-align: center;"></div>
+        </div>
+
+        <!-- قسم الإدخال اليدوي مع الوقت -->
+        <div class="card">
+            <h3>إضافة يدوية دقيقة</h3>
+            <input type="text" id="eventText" placeholder="اسم الحدث أو الموعد...">
+            <label>التاريخ والوقت:</label>
+            <input type="date" id="eventDate">
+            <input type="time" id="eventTime">
+            <button onclick="addManualEvent()">حفظ الموعد مع التنبيه</button>
+        </div>
+
         <h2>التذكيرات والنشاطات:</h2>
-        <ul id="eventsList">
-            <!-- ستعرض الأحداث هنا -->
-        </ul>
+        <ul id="eventsList"></ul>
     </div>
+
+    <!-- عنصر صوتي داخلي لتشغيل رنين التنبيه وقت الموعد -->
+    <audio id="alarmSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
     <script>
         const eventsList = document.getElementById('eventsList');
         const eventInput = document.getElementById('eventText');
         const eventDateInput = document.getElementById('eventDate');
         const eventTimeInput = document.getElementById('eventTime');
+        const alarmSound = document.getElementById('alarmSound');
+        const permissionBanner = document.getElementById('permissionBanner');
 
-        // ضبط التاريخ الافتراضي ليوم غد أو اليوم
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordedAudioBlob = null;
+
         document.addEventListener('DOMContentLoaded', () => {
             const today = new Date().toISOString().split('T')[0];
             eventDateInput.value = today;
             loadEvents();
-            
-            // طلب إذن التنبيهات من الجهاز
+            setInterval(checkAlarms, 10000); // يفحص كل 10 ثواني بدقة
+        });
+
+        function enableAudioAndNotifications() {
+            alarmSound.play().then(() => {
+                alarmSound.pause();
+                alarmSound.currentTime = 0;
+                permissionBanner.style.display = 'none';
+                alert('تم تفعيل التنبيهات الصوتية بنجاح!');
+            }).catch(e => {
+                console.log(e);
+            });
+
             if (window.Notification && Notification.permission !== "granted") {
                 Notification.requestPermission();
             }
+        }
 
-            // فحص المواعيد كل دقيقة لتنبيه الجهاز
-            setInterval(checkAlarms, 60000);
-        });
+        // 1. تحويل الكلام إلى نص (Speech-to-Text)
+        function startSpeechToText() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert('متصفحك لا يدعم التحويل الصوتي المباشر، استعمل الكروم.');
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'ar-IQ';
+            recognition.start();
 
-        function addStructuredEvent() {
+            recognition.onresult = function(event) {
+                const text = event.results[0][0].transcript;
+                eventInput.value = text;
+            };
+            recognition.onerror = function() {
+                alert('حدث خطأ في التقاط الصوت، حاول مرة أخرى.');
+            };
+        }
+
+        // 2. تسجيل بصمة صوتية (Audio Recording)
+        async function toggleAudioRecording() {
+            const btn = document.getElementById('recordAudioBtn');
+            const statusDiv = document.getElementById('recordingStatus');
+
+            if (!mediaRecorder || mediaRecorder.state === "inactive") {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        recordedAudioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                        statusDiv.textContent = '✅ تم تسجيل البصمة الصوتية بنجاح! الآن حدد التاريخ والوقت واضغط حفظ.';
+                    };
+
+                    mediaRecorder.start();
+                    btn.textContent = '⏹️ إيقاف التسجيل';
+                    btn.classList.add('recording');
+                    statusDiv.textContent = 'جاي أسجل الصوت الآن...';
+                } catch (err) {
+                    alert('يرجى السماح للمتصفح بالوصول للميكروفون.');
+                }
+            } else {
+                mediaRecorder.stop();
+                btn.textContent = '🎙️ ابدأ تسجيل بصمة صوتية';
+                btn.classList.remove('recording');
+            }
+        }
+
+        // حفظ الحدث (سواء نصي أو بصمة صوتية)
+        function addManualEvent() {
             const text = eventInput.value.trim();
             const date = eventDateInput.value;
             const time = eventTimeInput.value;
 
-            if (!text || !date || !time) {
-                alert('الرجاء ملء جميع الحقول (اسم الموعد، التاريخ، والوقت)');
+            if ((!text && !recordedAudioBlob) || !date || !time) {
+                alert('الرجاء إدخال اسم الحدث (أو بصمة صوتية) مع تحديد التاريخ والوقت!');
                 return;
             }
 
-            const eventObj = {
-                id: Date.now(),
-                text: text,
-                date: date,
-                time: time
-            };
+            if (recordedAudioBlob) {
+                const reader = new FileReader();
+                reader.readAsDataURL(recordedAudioBlob);
+                reader.onloadend = function() {
+                    const base64Audio = reader.result;
+                    saveAndRenderEvent({
+                        id: Date.now(),
+                        text: text || 'بصمة صوتية مسجلة 🎙️',
+                        date: date,
+                        time: time,
+                        audio: base64Audio
+                    });
+                    resetForm();
+                }
+            } else {
+                saveAndRenderEvent({
+                    id: Date.now(),
+                    text: text,
+                    date: date,
+                    time: time,
+                    audio: null
+                });
+                resetForm();
+            }
+        }
 
-            saveEventToStorage(eventObj);
-            addEventToDOM(eventObj);
-
-            // تصفير الحقول
+        function resetForm() {
             eventInput.value = '';
-            eventTimeInput.value = '';
+            recordedAudioBlob = null;
+            document.getElementById('recordingStatus').textContent = '';
         }
 
-        function addEventToDOM(eventObj) {
-            const li = document.createElement('li');
-            li.setAttribute('data-id', eventObj.id);
-            li.innerHTML = `
-                <div class="event-info">
-                    <span><strong>${eventObj.text}</strong></span>
-                    <span class="event-time">📅 ${eventObj.date} ⏰ ${eventObj.time}</span>
-                </div>
-                <button class="delete-btn" onclick="removeEvent(${eventObj.id})">حذف</button>
-            `;
-            eventsList.appendChild(li);
-        }
-
-        function saveEventToStorage(eventObj) {
-            let events = JSON.parse(localStorage.getItem('hajiMohammadStructuredEvents')) || [];
+        function saveAndRenderEvent(eventObj) {
+            let events = JSON.parse(localStorage.getItem('hajiEventsAdvanced')) || [];
             events.push(eventObj);
-            localStorage.setItem('hajiMohammadStructuredEvents', JSON.stringify(events));
+            localStorage.setItem('hajiEventsAdvanced', JSON.stringify(events));
+            loadEvents();
         }
 
         function loadEvents() {
             eventsList.innerHTML = '';
-            let events = JSON.parse(localStorage.getItem('hajiMohammadStructuredEvents')) || [];
-            // ترتيب حسب التاريخ والوقت
+            let events = JSON.parse(localStorage.getItem('hajiEventsAdvanced')) || [];
             events.sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+            
             events.forEach(eventObj => {
-                addEventToDOM(eventObj);
+                const li = document.createElement('li');
+                let audioHtml = eventObj.audio ? `<audio controls src="${eventObj.audio}"></audio>` : '';
+                
+                li.innerHTML = `
+                    <div class="event-info">
+                        <span><strong>${eventObj.text}</strong></span>
+                        <span class="event-time">📅 ${eventObj.date} ⏰ ${eventObj.time}</span>
+                        ${audioHtml}
+                    </div>
+                    <button class="delete-btn" onclick="removeEvent(${eventObj.id})">حذف</button>
+                `;
+                eventsList.appendChild(li);
             });
         }
 
         function removeEvent(id) {
-            let events = JSON.parse(localStorage.getItem('hajiMohammadStructuredEvents')) || [];
+            let events = JSON.parse(localStorage.getItem('hajiEventsAdvanced')) || [];
             events = events.filter(e => e.id !== id);
-            localStorage.setItem('hajiMohammadStructuredEvents', JSON.stringify(events));
+            localStorage.setItem('hajiEventsAdvanced', JSON.stringify(events));
             loadEvents();
         }
 
-        // دالة فحص التنبيهات وإرسال إشعار للجهاز
+        // فحص الإنذارات والأوقات بدقة وتشغيل الجرس الصوتي
         function checkAlarms() {
-            let events = JSON.parse(localStorage.getItem('hajiMohammadStructuredEvents')) || [];
+            let events = JSON.parse(localStorage.getItem('hajiEventsAdvanced')) || [];
             const now = new Date();
-            
-            // تنسيق الوقت الحالي بالشكل YYYY-MM-DD و HH:MM
             const currentDate = now.toISOString().split('T')[0];
             const currentHours = String(now.getHours()).padStart(2, '0');
             const currentMinutes = String(now.getMinutes()).padStart(2, '0');
@@ -226,20 +346,11 @@
 
             events.forEach(event => {
                 if (event.date === currentDate && event.time === currentTime) {
-                    triggerNotification(event.text);
+                    // تشغيل جرس التنبيه بصوت عالي
+                    alarmSound.play().catch(e => console.log(e));
+                    alert("🚨 موعد مهم لحجي محمد: " + event.text);
                 }
             });
-        }
-
-        function triggerNotification(text) {
-            if (window.Notification && Notification.permission === "granted") {
-                new Notification("تنبيه لمحي محمد:", {
-                    body: text,
-                    icon: "https://cdn-icons-png.flaticon.com/512/3236/3236952.png"
-                });
-            } else {
-                alert("تنبيه موعد: " + text);
-            }
         }
     </script>
 </body>
