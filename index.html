@@ -35,6 +35,21 @@
             border-radius: 12px;
             margin-bottom: 20px;
         }
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 10px;
+            color: #34495e;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
         button {
             background-color: #27ae60;
             color: white;
@@ -49,24 +64,6 @@
         }
         button:hover {
             background-color: #219653;
-        }
-        button.recording {
-            background-color: #c0392b;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { opacity: 1; }
-        }
-        input, textarea {
-            width: 100%;
-            padding: 12px;
-            margin-top: 8px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            font-size: 16px;
         }
         ul {
             list-style: none;
@@ -83,6 +80,16 @@
             align-items: center;
             font-size: 18px;
         }
+        .event-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .event-time {
+            font-size: 14px;
+            color: #e67e22;
+            font-weight: bold;
+            margin-top: 5px;
+        }
         .delete-btn {
             background: #e74c3c;
             color: white;
@@ -94,12 +101,6 @@
             width: auto;
             margin: 0;
         }
-        .status {
-            text-align: center;
-            font-weight: bold;
-            color: #e67e22;
-            margin-top: 10px;
-        }
     </style>
 </head>
 <body>
@@ -107,23 +108,24 @@
     <div class="container">
         <h1>مواعيد وتذكيرات حجي محمد</h1>
 
-        <!-- قسم الإدخال الصوتي -->
+        <!-- قسم إضافة موعد منظم -->
         <div class="card">
-            <h3>إضافة موعد بالصوت</h3>
-            <p style="font-size: 14px; color: #666;">اضغط على الزر واحكي التذكير بوضوح:</p>
-            <button id="recordBtn" onclick="toggleSpeechRecognition()">🎤 اضغط وابدأ بالحكي</button>
-            <div id="status" class="status"></div>
-        </div>
+            <h3>إضافة موعد أو حدث جديد</h3>
+            
+            <label for="eventText">اسم الموعد / الحدث:</label>
+            <input type="text" id="eventText" placeholder="مثلاً: موعد الدواء، زيارة الدكتور...">
 
-        <!-- قسم الإدخال اليدوي السريع -->
-        <div class="card">
-            <h3>إضافة موعد كتابةً</h3>
-            <input type="text" id="eventText" placeholder="اكتب التذكير هنا (مثلاً: موعد الدواء الساعة 4)">
-            <button onclick="addManualEvent()" style="background-color: #2980b9;">إضافة الحدث</button>
+            <label for="eventDate">التاريخ:</label>
+            <input type="date" id="eventDate">
+
+            <label for="eventTime">الوقت:</label>
+            <input type="time" id="eventTime">
+
+            <button onclick="addStructuredEvent()">حفظ الموعد</button>
         </div>
 
         <!-- قائمة التذكيرات -->
-        <h2>التذكيرات الحالية:</h2>
+        <h2>التذكيرات والنشاطات:</h2>
         <ul id="eventsList">
             <!-- ستعرض الأحداث هنا -->
         </ul>
@@ -131,96 +133,113 @@
 
     <script>
         const eventsList = document.getElementById('eventsList');
-        const statusDiv = document.getElementById('status');
-        const recordBtn = document.getElementById('recordBtn');
         const eventInput = document.getElementById('eventText');
+        const eventDateInput = document.getElementById('eventDate');
+        const eventTimeInput = document.getElementById('eventTime');
 
-        // تحميل البيانات المحفوظة مسبقاً إذا توفرت
-        document.addEventListener('DOMContentLoaded', loadEvents);
+        // ضبط التاريخ الافتراضي ليوم غد أو اليوم
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            eventDateInput.value = today;
+            loadEvents();
+            
+            // طلب إذن التنبيهات من الجهاز
+            if (window.Notification && Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
 
-        function addEventToDOM(text) {
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <span>${text}</span>
-                <button class="delete-btn" onclick="removeEvent(this)">حذف</button>
-            `;
-            eventsList.appendChild(li);
-            saveEvents();
-        }
+            // فحص المواعيد كل دقيقة لتنبيه الجهاز
+            setInterval(checkAlarms, 60000);
+        });
 
-        function addManualEvent() {
+        function addStructuredEvent() {
             const text = eventInput.value.trim();
-            if (text) {
-                addEventToDOM(text);
-                eventInput.value = '';
-            } else {
-                alert('الرجاء كتابة تفاصيل التذكير');
-            }
-        }
+            const date = eventDateInput.value;
+            const time = eventTimeInput.value;
 
-        function removeEvent(button) {
-            button.parentElement.remove();
-            saveEvents();
-        }
-
-        function saveEvents() {
-            const items = [];
-            eventsList.querySelectorAll('li span').forEach(span => {
-                items.push(span.textContent);
-            });
-            localStorage.setItem('hajiMohammadEvents', JSON.stringify(items));
-        }
-
-        function loadEvents() {
-            const saved = localStorage.getItem('hajiMohammadEvents');
-            if (saved) {
-                JSON.parse(saved).forEach(text => {
-                    addEventToDOM(text);
-                });
-            }
-        }
-
-        // دعم الإدخال الصوتي باستخدام المتصفح (Web Speech API)
-        let recognition;
-        function toggleSpeechRecognition() {
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                alert('متصفحك لا يدعم الإدخال الصوتي، يرجى استخدام متصفح حديث مثل كروم.');
+            if (!text || !date || !time) {
+                alert('الرجاء ملء جميع الحقول (اسم الموعد، التاريخ، والوقت)');
                 return;
             }
 
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.lang = 'ar-IQ'; // لهجة عراقية / عربية
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-
-            recognition.onstart = function() {
-                recordBtn.textContent = '🔴 جاي أسمعك... احكي الآن';
-                recordBtn.classList.add('recording');
-                statusDiv.textContent = 'استماع...';
+            const eventObj = {
+                id: Date.now(),
+                text: text,
+                date: date,
+                time: time
             };
 
-            recognition.onresult = function(event) {
-                const speechResult = event.results[0][0].transcript;
-                addEventToDOM(speechResult);
-                statusDiv.textContent = 'تمت إضافة التذكير بنجاح: "' + speechResult + '"';
-            };
+            saveEventToStorage(eventObj);
+            addEventToDOM(eventObj);
 
-            recognition.onerror = function(event) {
-                statusDiv.textContent = 'صار خطأ، حاول مرة ثانية.';
-                resetRecordButton();
-            };
-
-            recognition.onend = function() {
-                resetRecordButton();
-            };
-
-            recognition.start();
+            // تصفير الحقول
+            eventInput.value = '';
+            eventTimeInput.value = '';
         }
 
-        function resetRecordButton() {
-            recordBtn.textContent = '🎤 اضغط وابدأ بالحكي';
-            recordBtn.classList.remove('recording');
+        function addEventToDOM(eventObj) {
+            const li = document.createElement('li');
+            li.setAttribute('data-id', eventObj.id);
+            li.innerHTML = `
+                <div class="event-info">
+                    <span><strong>${eventObj.text}</strong></span>
+                    <span class="event-time">📅 ${eventObj.date} ⏰ ${eventObj.time}</span>
+                </div>
+                <button class="delete-btn" onclick="removeEvent(${eventObj.id})">حذف</button>
+            `;
+            eventsList.appendChild(li);
+        }
+
+        function saveEventToStorage(eventObj) {
+            let events = JSON.parse(localStorage.getItem('hajiMohammadStructuredEvents')) || [];
+            events.push(eventObj);
+            localStorage.setItem('hajiMohammadStructuredEvents', JSON.stringify(events));
+        }
+
+        function loadEvents() {
+            eventsList.innerHTML = '';
+            let events = JSON.parse(localStorage.getItem('hajiMohammadStructuredEvents')) || [];
+            // ترتيب حسب التاريخ والوقت
+            events.sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+            events.forEach(eventObj => {
+                addEventToDOM(eventObj);
+            });
+        }
+
+        function removeEvent(id) {
+            let events = JSON.parse(localStorage.getItem('hajiMohammadStructuredEvents')) || [];
+            events = events.filter(e => e.id !== id);
+            localStorage.setItem('hajiMohammadStructuredEvents', JSON.stringify(events));
+            loadEvents();
+        }
+
+        // دالة فحص التنبيهات وإرسال إشعار للجهاز
+        function checkAlarms() {
+            let events = JSON.parse(localStorage.getItem('hajiMohammadStructuredEvents')) || [];
+            const now = new Date();
+            
+            // تنسيق الوقت الحالي بالشكل YYYY-MM-DD و HH:MM
+            const currentDate = now.toISOString().split('T')[0];
+            const currentHours = String(now.getHours()).padStart(2, '0');
+            const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+            const currentTime = `${currentHours}:${currentMinutes}`;
+
+            events.forEach(event => {
+                if (event.date === currentDate && event.time === currentTime) {
+                    triggerNotification(event.text);
+                }
+            });
+        }
+
+        function triggerNotification(text) {
+            if (window.Notification && Notification.permission === "granted") {
+                new Notification("تنبيه لمحي محمد:", {
+                    body: text,
+                    icon: "https://cdn-icons-png.flaticon.com/512/3236/3236952.png"
+                });
+            } else {
+                alert("تنبيه موعد: " + text);
+            }
         }
     </script>
 </body>
