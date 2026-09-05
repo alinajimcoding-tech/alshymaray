@@ -27,13 +27,10 @@
         }
 
         body {
-            /* تعبئة الشاشة بالكامل بالصورة الجديدة المرفقة مع عتمة خفيفة لضمان وضوح النصوص */
+            /* استخدمنا صورة خلفية بجودة عالية ومستقرة لتأطير الشاشة بالكامل */
             background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85)), 
-                        url('image_7e0923.jpg') no-repeat center center fixed;
+                        url('https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1920&auto=format&fit=crop') no-repeat center center fixed;
             background-size: cover;
-            -webkit-background-size: cover;
-            -moz-background-size: cover;
-            -o-background-size: cover;
             color: var(--text-color);
             margin: 0;
             padding: 20px;
@@ -238,7 +235,7 @@
         <ul id="eventsList"></ul>
     </div>
 
-    <!-- مصدر الموسيقى والصوت -->
+    <!-- مصادر الصوت والموسيقى -->
     <audio id="bgMusic" src="https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg" loop preload="auto"></audio>
     <audio id="alarmSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
