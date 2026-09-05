@@ -6,12 +6,11 @@
     <title>تذكيرات حجي محمد - النسخة الملكية</title>
     <style>
         :root {
-            --card-bg: rgba(15, 15, 20, 0.85);
+            --card-bg: rgba(15, 15, 20, 0.88);
             --text-color: #f3f4f6;
-            --input-bg: rgba(25, 25, 35, 0.9);
-            --border-color: #d4af37; /* لون ذهبي ملكي */
+            --input-bg: rgba(25, 25, 35, 0.95);
+            --border-color: #d4af37;
             --primary-gold: #d4af37;
-            --accent-gold: #aa820a;
         }
 
         [data-theme="light"] {
@@ -28,10 +27,13 @@
         }
 
         body {
-            /* وضع الصورة الملكية المرفقة كخلفية ثابتة مع طبقة تغشية لوداضة النص */
-            background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.85)), 
+            /* تعبئة الشاشة بالكامل وتأطير الصفحة بالصورة */
+            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
                         url('image_7dfdf8.jpg') no-repeat center center fixed;
             background-size: cover;
+            -webkit-background-size: cover;
+            -moz-background-size: cover;
+            -o-background-size: cover;
             color: var(--text-color);
             margin: 0;
             padding: 20px;
@@ -44,8 +46,8 @@
             background: var(--card-bg);
             padding: 25px;
             border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
             border: 2px solid var(--primary-gold);
         }
 
@@ -236,7 +238,7 @@
         <ul id="eventsList"></ul>
     </div>
 
-    <!-- مصدر موسيقى بديل ومضمون الاشتغال (يعتمد على ملف نغم هادئ افتراضي) -->
+    <!-- مصدر الموسيقى والصوت -->
     <audio id="bgMusic" src="https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg" loop preload="auto"></audio>
     <audio id="alarmSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
@@ -310,7 +312,7 @@
             if (!mediaRecorder || mediaRecorder.state === "inactive") {
                 try {
                     if (isMusicPlaying) {
-                        bgMusic.pause(); // إيقاف الموسيقى تلقائياً وقت التسجيل
+                        bgMusic.pause(); // إيقاف الموسيقى مؤقتاً أثناء التسجيل
                     }
 
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
